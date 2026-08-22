@@ -1,0 +1,2 @@
+# mafo-watcher
+Checks MaFo
