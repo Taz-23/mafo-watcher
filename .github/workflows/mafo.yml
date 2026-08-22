@@ -1,0 +1,46 @@
+name: MaFo Studien-Watcher
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # alle 10 Minuten
+  workflow_dispatch:          # manueller Start ueber den Actions-Tab
+
+permissions:
+  contents: write             # noetig, um seen_studies.json zurueckzuschreiben
+
+concurrency:
+  group: mafo-watcher
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abhaengigkeiten
+        run: pip install requests
+
+      - name: Auf neue Studien pruefen
+        env:
+          MAFO_TG_TOKEN: ${{ secrets.MAFO_TG_TOKEN }}
+          MAFO_TG_CHAT: ${{ secrets.MAFO_TG_CHAT }}
+          MAFO_SECTIONS: both
+          MAFO_DESKTOP: "0"        # kein Desktop-Popup auf dem Runner
+        run: python mafo_watcher.py
+
+      - name: Stand speichern
+        run: |
+          if [[ -n "$(git status --porcelain seen_studies.json)" ]]; then
+            git config user.name  "mafo-watcher"
+            git config user.email "actions@github.com"
+            git add seen_studies.json
+            git commit -m "Stand aktualisiert: $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          else
+            echo "Keine Aenderung."
+          fi
